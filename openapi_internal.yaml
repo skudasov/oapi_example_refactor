@@ -1,0 +1,251 @@
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: Insolar Authorization Service API
+  contact:
+    name: Insolar dev team
+    url: https://insolar.io/team.html
+    email: dev-support@insolar.io
+  description: |
+    # Authorization service API
+
+    This document provides an API reference for the Insolar authentication service (auth-service).
+
+    Auth-service allows the Insolar Observer nodes to register and authenticate in the Insolar network.
+
+    ## Connect your Observer node to the Insolar network
+
+    To connect, complete the following steps:
+
+    1. Acquire a login and a registration code from Insolar.
+
+       The code is unique, lives for 24 hours, expires upon first use, and allows you to set your password.
+
+    2. Set a password via a dedicated request with the provided code, login, and your password in parameters.
+
+    Observer node authenticates in the Insolar network in the following way:
+
+    1. Using basic authorization (your login and password), the Observer requests a new JSON Web Token (JWT) for every request.
+
+       The auth-service checks the login-password pair and, if valid, issues a JWT for authentication.
+
+    2. Then, the Observer substitutes the corresponding header of every request to the Insolar network with the acquired JWT.
+
+       Insolar's heavy node checks the JWT's validity and expiry timestamp.
+servers:
+  - url: 'https://auth.insolar.io'
+paths:
+  /clients:
+    post:
+      summary: Add client
+      description: |
+        Adds a new client to the auth-service.
+
+        To add a client, provide a unique login in the request body.
+
+      operationId: add-client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/schemas-client'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responses-new-client'
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+
+    put:
+      summary: Activate or deactivate client
+      description: |
+        Activate or deactivate access token issuance to the client registered in the auth-service.
+
+        To deactivate a client, specify in the request body:
+
+        * Client's unique login
+        * State: `"active": false`
+
+      operationId: activate-client
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/schemas-client-activate'
+
+      responses:
+        '200':
+          description: OK
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+
+    get:
+      summary: Get clients
+      description: |
+        Gets an array of client objects registered in the auth-service.
+
+        Each object contains:
+
+        * Unique login
+        * State: active or inactive
+        * Timestamp of the latest modification
+
+        To get information on a specific client, provide the unique client login in path: `/clients/{login}`.
+      operationId: client-array
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responses-clients-yaml'
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+  /clients/{login}:
+    get:
+      summary: Get client
+      description: |
+        Gets the following information on a client registered in the authorization service:
+
+        * Unique login
+        * State: active or inactive
+        * Timestamp of the latest modification
+
+      operationId: get-client
+      parameters:
+        - name: login
+          in: path
+          schema:
+            type: string
+          description: Client's login—unique identificator of the client to get information on.
+          example: unique_client_login
+          required: true
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responses-client-yaml'
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    schemas-client:
+      type: object
+      required:
+        - login
+      properties:
+        login:
+          type: string
+          example: unique_client_login
+          description: Unique client login.
+#      x-json-schema-id: schemas/client
+    responses-new-client:
+      type: object
+      required:
+        - login
+        - register_at
+      properties:
+        login:
+          type: string
+          example: unique_client_login
+          description: Unique client login.
+        register_at:
+          type: string
+          example: 'https://auth.insolar.io/auth/set-password?code=asdfEGXDKBOI346sdfg'
+          description: >-
+            Partially formed `/set-password` request with a registration code in
+            query. To be used by the client to set the password.
+#      x-json-schema-id: responses/new-client
+    schemas-client-activate:
+      type: object
+      required:
+        - login
+        - active
+      properties:
+        login:
+          type: string
+          example: unique-client-name
+          description: Unique login of the client to enable or disable.
+        active:
+          type: boolean
+          enum:
+            - true
+            - false
+          example: true
+          description: >
+            Client state to set: if `"active": false`, the client cannot get
+            authentication tokens (JWTs).
+#      x-json-schema-id: schemas/client-activate
+    responses-clients-yaml:
+      type: object
+      properties:
+        clients:
+          type: array
+          description: Array of client objects.
+          items:
+            $ref: '#/components/schemas/responses-client-yaml'
+#      x-json-schema-id: responses/clients.yaml
+    responses-client-yaml:
+      type: object
+      required:
+        - login
+        - active
+        - modified_at
+      properties:
+        login:
+          type: string
+          example: unique_client_login
+          description: Unique client login.
+        active:
+          type: boolean
+          example: true
+          description: |
+            Client state:
+
+            * Active if `true`
+            * Inactive if `false`
+
+            If inactive, the client cannot get authentication tokens (JWTs).
+        modified_at:
+          type: integer
+          format: int64
+          example: 1590669972
+          description: Timestamp of the latest modification.
+#      x-json-schema-id: responses/client.yaml
+
+

@@ -1,0 +1,148 @@
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: Insolar Authorization Service API
+  contact:
+    name: Insolar dev team
+    url: https://insolar.io/team.html
+    email: dev-support@insolar.io
+  description: |
+    # Authorization service API
+
+    This document provides an API reference for the Insolar authentication service (auth-service).
+
+    Auth-service allows the Insolar Observer nodes to register and authenticate in the Insolar network.
+
+    ## Connect your Observer node to the Insolar network
+
+    To connect, complete the following steps:
+
+    1. Acquire a login and a registration code from Insolar.
+
+       The code is unique, lives for 24 hours, expires upon first use, and allows you to set your password.
+
+    2. [Set a password](#operation/set-password) with the provided code, login, and your password in parameters.
+
+    Observer node authenticates in the Insolar network in the following way:
+
+    1. Using basic authorization (your login and password), the Observer requests a new JSON Web Token (JWT) for every request.
+
+       The auth-service checks the login-password pair and, if valid, issues a JWT for authentication.
+
+    2. Then, the Observer substitutes the corresponding header of every request to the Insolar network with the acquired JWT.
+
+       Insolar's heavy node checks the JWT's validity and expiry timestamp.
+servers:
+  - url: 'https://auth.insolar.io'
+paths:
+  /auth/set-password:
+    post:
+      summary: Set password
+      description: |
+        Sets the client's password for basic authentication.
+
+        The Observer node uses basic authentication to get a JSON Web Token (JWT) via the [token request](#operation/token).
+        The JWT is required to authenticate every request from the Observer node to the Insolar network.
+
+      operationId: set-password
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+          description: Unique registration code. Lives for 24 hours, expires upon first use, and allows to set the password for basic authentication.
+          required: true
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/parameters-set-password'
+
+      responses:
+        '200':
+          description: OK
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+  /auth/token:
+    get:
+      summary: Get token
+      description: |
+        Gets an access token—JSON Web Token (JWT).
+
+        This request uses basic authentication through the Secure Sockets Layer (SSL).
+
+        The JWT is required to authenticate every request from the Observer node to the Insolar network.
+
+        JWT lives for 15 minutes. To continue accessing the Insolar network, the Observer node gets a new JWT upon the expiration of the old one.
+      operationId: token
+      parameters:
+        - in: header
+          name: "Authorization: Basic"
+          example: "Authorization: Basic <login>:<password>"
+          description: HTTP basic authorization header with the Base64 encoding of login and password joined by a single colon `:`.
+          schema:
+            type: string
+            format: byte
+          required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responses-token'
+        '204':
+          description: No content
+        '400':
+          description: Bad request
+        '404':
+          description: Method not found
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    parameters-set-password:
+      type: object
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+          example: unique_client_login
+          description: Unique login provided by Insolar.
+        password:
+          type: string
+          example: strong_password
+          description: |
+            Strong password that must:
+            * Contain at least 1 number, 1 lowercase, and 1 uppercase letter.
+            * Have length from 8 to 12 symbols inclusively.
+#      x-json-schema-id: parameters/set-password
+    responses-token:
+      type: object
+      required:
+        - access_token
+        - expiration
+      properties:
+        access_token:
+          type: string
+          example: >-
+            eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpbnNvbGFyIiwic3ViIjoiZXhjaGFuZ2UtbmFtZSIsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxNTE2MjQ1MDAwfQ.kT9y2S3FrHT_x25J8vx8n_WEkd0zbIHiqmzDW0H1ViI
+          description: >-
+            JSON Web Token that grants a request invocation right in the Insolar
+            network. Lives for 15 minutes and expires upon first use.
+        expiration:
+          type: integer
+          format: int64
+          example: 1590656252
+          description: Token expiration timestamp in Unix format.
+#      x-json-schema-id: responses/token
